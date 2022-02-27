@@ -903,6 +903,20 @@ if [ -f "$pkgmeta_file" ]; then
 									ignore="$ignore:$pattern"
 								fi
 								;;
+							unaltered)
+								pattern=$yaml_item
+								if [ -d "$topdir/$pattern" ]; then
+									pattern="$pattern/*"
+								elif [ ! -f "$topdir/$pattern" ]; then
+									# doesn't exist so match both a file and a path
+									pattern="$pattern:$pattern/*"
+								fi
+								if [ -z "$unaltered" ]; then
+									unaltered="$pattern"
+								else
+									unaltered="$unaltered:$pattern"
+								fi
+								;;
 							tools-used)
 								relations["$yaml_item"]="tool"
 								;;
@@ -1592,7 +1606,7 @@ copy_directory_tree() {
 			fi
 			# Never skip files that match the colon-separated "unchanged" shell wildcard patterns.
 			unchanged=
-			if [ -n "$skip_copy" ] && match_pattern "$file" "$_cdt_unchanged_patterns"; then
+			if match_pattern "$file" "$_cdt_unchanged_patterns"; then
 				skip_copy=
 				unchanged="true"
 			fi
@@ -1722,13 +1736,21 @@ copy_directory_tree() {
 
 if [ -z "$skip_copying" ]; then
 	cdt_args="-dp"
+	local_unaltered=$unaltered
 	[ "$file_type" != "alpha" ] && cdt_args+="a"
 	[ -z "$skip_localization" ] && cdt_args+="l"
 	[ -n "$nolib" ] && cdt_args+="n"
 	[ -n "$split" ] && cdt_args+="S"
 	[ -n "$game_type" ] && cdt_args+=" -g $game_type"
 	[ -n "$ignore" ] && cdt_args+=" -i \"$ignore\""
-	[ -n "$changelog" ] && cdt_args+=" -u \"$changelog\""
+	if [ -n "$changelog" ]; then
+		if [ -n "$local_unaltered" ]; then
+			local_unaltered+=":$changelog"
+		else
+			local_unaltered="$changelog"
+		fi
+	fi
+	[ -n "$local_unaltered" ] && cdt_args+=" -u \"$local_unaltered\""
 	eval copy_directory_tree "$cdt_args" "\"$topdir\"" "\"$pkgdir\""
 fi
 
